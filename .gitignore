@@ -90,6 +90,5 @@ $RECYCLE.BIN/
 
 # Windows shortcuts
 *.lnk
-*.fdb
 
 # End of https://www.gitignore.io/api/delphi,windows
