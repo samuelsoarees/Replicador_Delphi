@@ -1,0 +1,297 @@
+16:30:56 - CREATE GENERATOR GEN_BANCOS_ID;
+16:30:56 -   CREATE TABLE BANCOS (                    ID             INTEGER NOT NULL,         DESCRICAO      VARCHAR(60),              HOST           VARCHAR(60),              PATH           VARCHAR(255),             USUARIO        VARCHAR(60),              SENHA          VARCHAR(60),              ROLE           VARCHAR(60),              PORT           INTEGER,                  ENVIAR         INTEGER,                  RECEBER        INTEGER,                  PRIORIDADE     SMALLINT,                 TABELASENVIA   VARCHAR(4096),            TABELASRECEBE  VARCHAR(4096)            );
+16:30:56 -   CREATE TABLE REPLICACAO (                IDBANCO       INTEGER NOT NULL,          IDRECEIVER    INTEGER NOT NULL,          REGISTROS     VARCHAR(255) NOT NULL,     TABELA        VARCHAR(60) NOT NULL,      ACAO          CHAR(1),                   DATAINCLUSAO  TIMESTAMP NOT NULL,        GUUID         VARCHAR(256) NOT NULL       ); 
+16:30:56 - CREATE GENERATOR GEN_REPLICACOES_ID;
+16:30:56 - ALTER TABLE BANCOS ADD CONSTRAINT PK_BANCOS PRIMARY KEY (ID);
+16:30:56 - ALTER TABLE REPLICACAO ADD CONSTRAINT PK_REPLICACAO PRIMARY KEY (IDBANCO, IDRECEIVER, REGISTROS, TABELA, DATAINCLUSAO, GUUID);
+16:30:56 -   CREATE OR ALTER TRIGGER BANCOS_BI FOR BANCOS         ACTIVE BEFORE INSERT POSITION 0             as                                          begin                                         if (new.id is null) then                      new.id = gen_id(gen_bancos_id,1);       end;                                       
+16:30:56 -  CREATE OR ALTER TRIGGER REPLICACOES_BI0 FOR REPLICACAO                                                                                                                                         ACTIVE BEFORE INSERT POSITION 0                                                                                                                                                                AS                                                                                                                                                                                             declare variable ID Integer;                                                                                                                                                                      begin                                                                                                                                                                                             New.GUUID = UUID_TO_CHAR(GEN_UUID());                                                                                                                                                                       if (exists(SELECT * FROM REPLICACAO WHERE REGISTROS = NEW.REGISTROS AND TABELA = new.tabela AND (DATAINCLUSAO < New.datainclusao) AND NEW.IDBANCO = IDBANCO)) then                                delete from REPLICACAO WHERE REGISTROS = NEW.REGISTROS AND TABELA = new.tabela AND (DATAINCLUSAO < New.datainclusao);                                                                                                                                                                                                                                                                   if (New.idreceiver = 0) then                                                                                                                                                                  begin                                                                                                                                                                                             FOR SELECT ID FROM BANCOS WHERE ID <> NEW.IDBANCO AND RECEBER = 1 into :ID do                                                                                                                                                         BEGIN                                                                                                                                                                                             INSERT INTO replicacao (IDBANCO, IDRECEIVER, REGISTROS, TABELA, ACAO, DATAINCLUSAO) VALUES (New.idbanco, :ID, NEw.REGISTROS, New.tabela,  New.ACAO, New.DATAINCLUSAO);                   END                                                                                                                                                                                       end                                                                                                                                                                                        end;                                                                                                                                                                                      
+16:30:56 -  CREATE OR ALTER TRIGGER REPLICACAO_AI0 FOR REPLICACAO     ACTIVE AFTER DELETE POSITION 0                           AS                                                       begin                                                        delete from replicacao where idreceiver in (SELECT ID FROM bancos WHERE RECEBER = 0);   end
+16:30:56 -  CREATE OR ALTER TRIGGER REPLICACAO_BBI0 FOR REPLICACAO   ACTIVE AFTER DELETE POSITION 1                           AS                                                       begin                                                        delete from replicacao where idreceiver = 0;         end
+16:39:44 - SELECT * FROM BANCOS
+16:39:44 - CREATE TABLE REPLICACAO (                       REGISTROS     VARCHAR(255) NOT NULL,        TABELA        VARCHAR(60) NOT NULL,         ACAO          CHAR(1),                      DATAINCLUSAO  TIMESTAMP NOT NULL        );
+16:39:44 - ALTER TABLE REPLICACAO ADD CONSTRAINT PK_REPLICACAO PRIMARY KEY (REGISTROS, TABELA, DATAINCLUSAO);
+16:39:44 - SELECT TABELASENVIA FROM BANCOS WHERE ID = 1
+16:39:44 - select rdb$relation_name as tabela from rdb$relations where rdb$system_flag = 0
+16:39:44 - select                                                                             s.rdb$field_name AS PK,                                                          i.rdb$relation_name as TABELA                                                from                                                                                 rdb$indices i                                                                left join rdb$index_segments s on i.rdb$index_name = s.rdb$index_name            left join rdb$relation_constraints rc on rc.rdb$index_name = i.rdb$index_name    where                                                                                rc.rdb$constraint_type = 'PRIMARY KEY' AND                                     i.rdb$relation_name = 'FUNCIONARIO'                              
+16:39:44 - CREATE OR ALTER TRIGGER RPL_FUNCIONARIO_REG FOR FUNCIONARIO ACTIVE   AFTER INSERT OR UPDATE OR DELETE POSITION 0        AS                                                 declare variable conexao varchar(1024);              begin                                              select M.MON$REMOTE_PROCESS from MON$ATTACHMENTS M where M.MON$ATTACHMENT_ID = current_connection into :conexao;   if (position('Replicador.exe' in (:conexao)) <= 0) then      Begin                                                  if (inserting) then                                    insert into REPLICACAO (TABELA,REGISTROS,ACAO,DATAINCLUSAO)                 values('FUNCIONARIO', 'FUN_CODIGO = ''' || New.FUN_CODIGO || '''','I', CURRENT_TIMESTAMP);              if (updating) then                                     insert into REPLICACAO (TABELA,REGISTROS,ACAO,DATAINCLUSAO)                  values('FUNCIONARIO', 'FUN_CODIGO = ''' || New.FUN_CODIGO || '''','U', CURRENT_TIMESTAMP);              if (deleting) then                                    insert into REPLICACAO (TABELA,REGISTROS,ACAO,DATAINCLUSAO)                  values('FUNCIONARIO', 'FUN_CODIGO = ''' || Old.FUN_CODIGO || '''','D', CURRENT_TIMESTAMP);            end                                              end;
+16:39:44 - select                                                                             s.rdb$field_name AS PK,                                                          i.rdb$relation_name as TABELA                                                from                                                                                 rdb$indices i                                                                left join rdb$index_segments s on i.rdb$index_name = s.rdb$index_name            left join rdb$relation_constraints rc on rc.rdb$index_name = i.rdb$index_name    where                                                                                rc.rdb$constraint_type = 'PRIMARY KEY' AND                                     i.rdb$relation_name = 'CLIENTE'                              
+16:39:44 - CREATE OR ALTER TRIGGER RPL_CLIENTE_REG FOR CLIENTE ACTIVE   AFTER INSERT OR UPDATE OR DELETE POSITION 0        AS                                                 declare variable conexao varchar(1024);              begin                                              select M.MON$REMOTE_PROCESS from MON$ATTACHMENTS M where M.MON$ATTACHMENT_ID = current_connection into :conexao;   if (position('Replicador.exe' in (:conexao)) <= 0) then      Begin                                                  if (inserting) then                                    insert into REPLICACAO (TABELA,REGISTROS,ACAO,DATAINCLUSAO)                 values('CLIENTE', 'CLI_CODIGO = ''' || New.CLI_CODIGO || '''','I', CURRENT_TIMESTAMP);              if (updating) then                                     insert into REPLICACAO (TABELA,REGISTROS,ACAO,DATAINCLUSAO)                  values('CLIENTE', 'CLI_CODIGO = ''' || New.CLI_CODIGO || '''','U', CURRENT_TIMESTAMP);              if (deleting) then                                    insert into REPLICACAO (TABELA,REGISTROS,ACAO,DATAINCLUSAO)                  values('CLIENTE', 'CLI_CODIGO = ''' || Old.CLI_CODIGO || '''','D', CURRENT_TIMESTAMP);            end                                              end;
+16:39:44 - select                                                                             s.rdb$field_name AS PK,                                                          i.rdb$relation_name as TABELA                                                from                                                                                 rdb$indices i                                                                left join rdb$index_segments s on i.rdb$index_name = s.rdb$index_name            left join rdb$relation_constraints rc on rc.rdb$index_name = i.rdb$index_name    where                                                                                rc.rdb$constraint_type = 'PRIMARY KEY' AND                                     i.rdb$relation_name = 'REPLICACAO'                              
+16:39:44 - select                                                                             s.rdb$field_name AS PK,                                                          i.rdb$relation_name as TABELA                                                from                                                                                 rdb$indices i                                                                left join rdb$index_segments s on i.rdb$index_name = s.rdb$index_name            left join rdb$relation_constraints rc on rc.rdb$index_name = i.rdb$index_name    where                                                                                rc.rdb$constraint_type = 'PRIMARY KEY' AND                                     i.rdb$relation_name = 'ATENDIMENTO'                              
+16:39:44 - CREATE OR ALTER TRIGGER RPL_ATENDIMENTO_REG FOR ATENDIMENTO ACTIVE   AFTER INSERT OR UPDATE OR DELETE POSITION 0        AS                                                 declare variable conexao varchar(1024);              begin                                              select M.MON$REMOTE_PROCESS from MON$ATTACHMENTS M where M.MON$ATTACHMENT_ID = current_connection into :conexao;   if (position('Replicador.exe' in (:conexao)) <= 0) then      Begin                                                  if (inserting) then                                    insert into REPLICACAO (TABELA,REGISTROS,ACAO,DATAINCLUSAO)                 values('ATENDIMENTO', 'ATD_CODIGO = ''' || New.ATD_CODIGO || '''','I', CURRENT_TIMESTAMP);              if (updating) then                                     insert into REPLICACAO (TABELA,REGISTROS,ACAO,DATAINCLUSAO)                  values('ATENDIMENTO', 'ATD_CODIGO = ''' || New.ATD_CODIGO || '''','U', CURRENT_TIMESTAMP);              if (deleting) then                                    insert into REPLICACAO (TABELA,REGISTROS,ACAO,DATAINCLUSAO)                  values('ATENDIMENTO', 'ATD_CODIGO = ''' || Old.ATD_CODIGO || '''','D', CURRENT_TIMESTAMP);            end                                              end;
+16:39:44 -  CREATE OR ALTER TRIGGER REPLICACAO_BI0 FOR REPLICACAO              ACTIVE BEFORE INSERT POSITION 0                                    AS                                                                 begin                                                               IF (exists(SELECT * FROM REPLICACAO WHERE REGISTROS = NEW.REGISTROS AND TABELA = new.tabela AND DATAINCLUSAO = New.datainclusao AND NEW.ACAO = ACAO)) then       DELETE FROM REPLICACAO WHERE REGISTROS = NEW.REGISTROS AND TABELA = new.tabela AND DATAINCLUSAO = New.datainclusao AND NEW.ACAO = ACAO;  end;
+16:39:44 - CREATE TABLE REPLICACAO (                       REGISTROS     VARCHAR(255) NOT NULL,        TABELA        VARCHAR(60) NOT NULL,         ACAO          CHAR(1),                      DATAINCLUSAO  TIMESTAMP NOT NULL        );
+16:39:44 - ALTER TABLE REPLICACAO ADD CONSTRAINT PK_REPLICACAO PRIMARY KEY (REGISTROS, TABELA, DATAINCLUSAO);
+16:39:44 - SELECT TABELASENVIA FROM BANCOS WHERE ID = 2
+16:39:44 - select rdb$relation_name as tabela from rdb$relations where rdb$system_flag = 0
+16:39:44 - select                                                                             s.rdb$field_name AS PK,                                                          i.rdb$relation_name as TABELA                                                from                                                                                 rdb$indices i                                                                left join rdb$index_segments s on i.rdb$index_name = s.rdb$index_name            left join rdb$relation_constraints rc on rc.rdb$index_name = i.rdb$index_name    where                                                                                rc.rdb$constraint_type = 'PRIMARY KEY' AND                                     i.rdb$relation_name = 'FUNCIONARIO'                              
+16:39:44 - CREATE OR ALTER TRIGGER RPL_FUNCIONARIO_REG FOR FUNCIONARIO ACTIVE   AFTER INSERT OR UPDATE OR DELETE POSITION 0        AS                                                 declare variable conexao varchar(1024);              begin                                              select M.MON$REMOTE_PROCESS from MON$ATTACHMENTS M where M.MON$ATTACHMENT_ID = current_connection into :conexao;   if (position('Replicador.exe' in (:conexao)) <= 0) then      Begin                                                  if (inserting) then                                    insert into REPLICACAO (TABELA,REGISTROS,ACAO,DATAINCLUSAO)                 values('FUNCIONARIO', 'FUN_CODIGO = ''' || New.FUN_CODIGO || '''','I', CURRENT_TIMESTAMP);              if (updating) then                                     insert into REPLICACAO (TABELA,REGISTROS,ACAO,DATAINCLUSAO)                  values('FUNCIONARIO', 'FUN_CODIGO = ''' || New.FUN_CODIGO || '''','U', CURRENT_TIMESTAMP);              if (deleting) then                                    insert into REPLICACAO (TABELA,REGISTROS,ACAO,DATAINCLUSAO)                  values('FUNCIONARIO', 'FUN_CODIGO = ''' || Old.FUN_CODIGO || '''','D', CURRENT_TIMESTAMP);            end                                              end;
+16:39:44 - select                                                                             s.rdb$field_name AS PK,                                                          i.rdb$relation_name as TABELA                                                from                                                                                 rdb$indices i                                                                left join rdb$index_segments s on i.rdb$index_name = s.rdb$index_name            left join rdb$relation_constraints rc on rc.rdb$index_name = i.rdb$index_name    where                                                                                rc.rdb$constraint_type = 'PRIMARY KEY' AND                                     i.rdb$relation_name = 'CLIENTE'                              
+16:39:44 - CREATE OR ALTER TRIGGER RPL_CLIENTE_REG FOR CLIENTE ACTIVE   AFTER INSERT OR UPDATE OR DELETE POSITION 0        AS                                                 declare variable conexao varchar(1024);              begin                                              select M.MON$REMOTE_PROCESS from MON$ATTACHMENTS M where M.MON$ATTACHMENT_ID = current_connection into :conexao;   if (position('Replicador.exe' in (:conexao)) <= 0) then      Begin                                                  if (inserting) then                                    insert into REPLICACAO (TABELA,REGISTROS,ACAO,DATAINCLUSAO)                 values('CLIENTE', 'CLI_CODIGO = ''' || New.CLI_CODIGO || '''','I', CURRENT_TIMESTAMP);              if (updating) then                                     insert into REPLICACAO (TABELA,REGISTROS,ACAO,DATAINCLUSAO)                  values('CLIENTE', 'CLI_CODIGO = ''' || New.CLI_CODIGO || '''','U', CURRENT_TIMESTAMP);              if (deleting) then                                    insert into REPLICACAO (TABELA,REGISTROS,ACAO,DATAINCLUSAO)                  values('CLIENTE', 'CLI_CODIGO = ''' || Old.CLI_CODIGO || '''','D', CURRENT_TIMESTAMP);            end                                              end;
+16:39:44 - select                                                                             s.rdb$field_name AS PK,                                                          i.rdb$relation_name as TABELA                                                from                                                                                 rdb$indices i                                                                left join rdb$index_segments s on i.rdb$index_name = s.rdb$index_name            left join rdb$relation_constraints rc on rc.rdb$index_name = i.rdb$index_name    where                                                                                rc.rdb$constraint_type = 'PRIMARY KEY' AND                                     i.rdb$relation_name = 'REPLICACAO'                              
+16:39:44 - select                                                                             s.rdb$field_name AS PK,                                                          i.rdb$relation_name as TABELA                                                from                                                                                 rdb$indices i                                                                left join rdb$index_segments s on i.rdb$index_name = s.rdb$index_name            left join rdb$relation_constraints rc on rc.rdb$index_name = i.rdb$index_name    where                                                                                rc.rdb$constraint_type = 'PRIMARY KEY' AND                                     i.rdb$relation_name = 'ATENDIMENTO'                              
+16:39:44 - CREATE OR ALTER TRIGGER RPL_ATENDIMENTO_REG FOR ATENDIMENTO ACTIVE   AFTER INSERT OR UPDATE OR DELETE POSITION 0        AS                                                 declare variable conexao varchar(1024);              begin                                              select M.MON$REMOTE_PROCESS from MON$ATTACHMENTS M where M.MON$ATTACHMENT_ID = current_connection into :conexao;   if (position('Replicador.exe' in (:conexao)) <= 0) then      Begin                                                  if (inserting) then                                    insert into REPLICACAO (TABELA,REGISTROS,ACAO,DATAINCLUSAO)                 values('ATENDIMENTO', 'ATD_CODIGO = ''' || New.ATD_CODIGO || '''','I', CURRENT_TIMESTAMP);              if (updating) then                                     insert into REPLICACAO (TABELA,REGISTROS,ACAO,DATAINCLUSAO)                  values('ATENDIMENTO', 'ATD_CODIGO = ''' || New.ATD_CODIGO || '''','U', CURRENT_TIMESTAMP);              if (deleting) then                                    insert into REPLICACAO (TABELA,REGISTROS,ACAO,DATAINCLUSAO)                  values('ATENDIMENTO', 'ATD_CODIGO = ''' || Old.ATD_CODIGO || '''','D', CURRENT_TIMESTAMP);            end                                              end;
+16:39:44 -  CREATE OR ALTER TRIGGER REPLICACAO_BI0 FOR REPLICACAO              ACTIVE BEFORE INSERT POSITION 0                                    AS                                                                 begin                                                               IF (exists(SELECT * FROM REPLICACAO WHERE REGISTROS = NEW.REGISTROS AND TABELA = new.tabela AND DATAINCLUSAO = New.datainclusao AND NEW.ACAO = ACAO)) then       DELETE FROM REPLICACAO WHERE REGISTROS = NEW.REGISTROS AND TABELA = new.tabela AND DATAINCLUSAO = New.datainclusao AND NEW.ACAO = ACAO;  end;
+16:41:27 - SELECT * FROM BANCOS ORDER BY PRIORIDADE
+16:41:27 - SELECT 1 AS EXISTE FROM RDB$RELATIONS WHERE RDB$FLAGS=1 and RDB$RELATION_NAME='REPLICACAO'
+16:41:27 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U', 'D'))
+16:41:27 - SELECT 1 AS EXISTE FROM RDB$RELATIONS WHERE RDB$FLAGS=1 and RDB$RELATION_NAME='REPLICACAO'
+16:41:27 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U', 'D'))
+16:41:27 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U'))
+16:41:27 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('D'))
+16:41:27 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U'))
+16:41:27 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('D'))
+16:43:26 - SELECT * FROM BANCOS ORDER BY PRIORIDADE
+16:43:26 - SELECT 1 AS EXISTE FROM RDB$RELATIONS WHERE RDB$FLAGS=1 and RDB$RELATION_NAME='REPLICACAO'
+16:43:26 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U', 'D'))
+16:43:26 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE tabela = 'ATENDIMENTO')
+16:43:26 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE tabela = 'CLIENTE')
+16:43:26 - DELETE FROM REPLICACAO WHERE  TABELA = 'CLIENTE' ORDER BY DATAINCLUSAO ROWS 50
+16:43:26 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE tabela = 'FUNCIONARIO')
+16:43:26 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE tabela = 'REPLICACAO')
+16:43:26 - SELECT 1 AS EXISTE FROM RDB$RELATIONS WHERE RDB$FLAGS=1 and RDB$RELATION_NAME='REPLICACAO'
+16:43:26 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U', 'D'))
+16:43:26 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U'))
+16:43:26 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE tabela = 'ATENDIMENTO') 
+16:43:26 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE tabela = 'CLIENTE') 
+16:43:26 -  SELECT LIST(REGISTROS) AS REGISTROS, LIST(GUUID) AS GUUID, TABELA, COUNT(*) AS TOTAL FROM REPLICACAO WHERE ACAO IN ('I', 'U') AND  TABELA = 'CLIENTE' AND IDRECEIVER = 2 AND IDBANCO = 1 GROUP BY TABELA 
+16:43:26 - Select                                                                     list(TRIM(f.rdb$field_name))  as FIELDS                           from rdb$relation_fields f                                            left join rdb$fields fs on fs.rdb$field_name = f.rdb$field_source     where                                                                     f.rdb$relation_name = 'CLIENTE' and                   fs.rdb$computed_source is null                                   
+16:43:26 - UPDATE OR INSERT INTO CLIENTE(CLI_CODIGO,CLI_NOME,CLI_BAIRRO,CLI_CIDADE,CLI_UF,CLI_CEP,CLI_CPF_CNPJ,CLI_RG,CLI_NFANTASIA_APELIDO,CLI_TELEFONE,CLI_CELULAR,CLI_ENDERECO,CLI_ATIVIDADE) VALUES (:CLI_CODIGO,:CLI_NOME,:CLI_BAIRRO,:CLI_CIDADE,:CLI_UF,:CLI_CEP,:CLI_CPF_CNPJ,:CLI_RG,:CLI_NFANTASIA_APELIDO,:CLI_TELEFONE,:CLI_CELULAR,:CLI_ENDERECO,:CLI_ATIVIDADE)
+16:43:27 - DELETE FROM REPLICACAO WHERE ACAO IN ('I', 'U') AND  TABELA = 'CLIENTE' AND IDRECEIVER = 2 AND IDBANCO = 1
+16:43:27 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE tabela = 'FUNCIONARIO') 
+16:43:27 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE tabela = 'REPLICACAO') 
+16:43:27 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('D'))
+16:43:27 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U'))
+16:43:27 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('D'))
+16:43:49 - SELECT * FROM BANCOS ORDER BY PRIORIDADE
+16:43:49 - SELECT 1 AS EXISTE FROM RDB$RELATIONS WHERE RDB$FLAGS=1 and RDB$RELATION_NAME='REPLICACAO'
+16:43:49 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U', 'D'))
+16:43:49 - SELECT 1 AS EXISTE FROM RDB$RELATIONS WHERE RDB$FLAGS=1 and RDB$RELATION_NAME='REPLICACAO'
+16:43:49 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U', 'D'))
+16:43:49 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE tabela = 'ATENDIMENTO')
+16:43:49 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE tabela = 'CLIENTE')
+16:43:49 - DELETE FROM REPLICACAO WHERE  TABELA = 'CLIENTE' ORDER BY DATAINCLUSAO ROWS 50
+16:43:49 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE tabela = 'FUNCIONARIO')
+16:43:49 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U'))
+16:43:49 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE tabela = 'ATENDIMENTO') 
+16:43:49 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE tabela = 'CLIENTE') 
+16:43:49 -  SELECT LIST(REGISTROS) AS REGISTROS, LIST(GUUID) AS GUUID, TABELA, COUNT(*) AS TOTAL FROM REPLICACAO WHERE ACAO IN ('I', 'U') AND  TABELA = 'CLIENTE' AND IDRECEIVER = 2 AND IDBANCO = 1 GROUP BY TABELA 
+16:43:49 - DELETE FROM REPLICACAO WHERE ACAO IN ('I', 'U') AND  TABELA = 'CLIENTE' AND IDRECEIVER = 2 AND IDBANCO = 1
+16:43:49 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE tabela = 'FUNCIONARIO') 
+16:43:49 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE tabela = 'REPLICACAO') 
+16:43:49 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('D'))
+16:43:49 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U'))
+16:43:49 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE tabela = 'ATENDIMENTO') 
+16:43:49 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE tabela = 'CLIENTE') 
+16:43:49 -  SELECT LIST(REGISTROS) AS REGISTROS, LIST(GUUID) AS GUUID, TABELA, COUNT(*) AS TOTAL FROM REPLICACAO WHERE ACAO IN ('I', 'U') AND  TABELA = 'CLIENTE' AND IDRECEIVER = 1 AND IDBANCO = 2 GROUP BY TABELA 
+16:43:49 - Select                                                                     list(TRIM(f.rdb$field_name))  as FIELDS                           from rdb$relation_fields f                                            left join rdb$fields fs on fs.rdb$field_name = f.rdb$field_source     where                                                                     f.rdb$relation_name = 'CLIENTE' and                   fs.rdb$computed_source is null                                   
+16:43:49 - UPDATE OR INSERT INTO CLIENTE(CLI_CODIGO,CLI_NOME,CLI_BAIRRO,CLI_CIDADE,CLI_UF,CLI_CEP,CLI_CPF_CNPJ,CLI_RG,CLI_NFANTASIA_APELIDO,CLI_TELEFONE,CLI_CELULAR,CLI_ENDERECO,CLI_ATIVIDADE) VALUES (:CLI_CODIGO,:CLI_NOME,:CLI_BAIRRO,:CLI_CIDADE,:CLI_UF,:CLI_CEP,:CLI_CPF_CNPJ,:CLI_RG,:CLI_NFANTASIA_APELIDO,:CLI_TELEFONE,:CLI_CELULAR,:CLI_ENDERECO,:CLI_ATIVIDADE)
+16:43:49 - DELETE FROM REPLICACAO WHERE ACAO IN ('I', 'U') AND  TABELA = 'CLIENTE' AND IDRECEIVER = 1 AND IDBANCO = 2
+16:43:49 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE tabela = 'FUNCIONARIO') 
+16:43:49 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('D'))
+16:44:40 - SELECT * FROM BANCOS ORDER BY PRIORIDADE
+16:44:40 - SELECT 1 AS EXISTE FROM RDB$RELATIONS WHERE RDB$FLAGS=1 and RDB$RELATION_NAME='REPLICACAO'
+16:44:40 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U', 'D'))
+16:44:40 - SELECT 1 AS EXISTE FROM RDB$RELATIONS WHERE RDB$FLAGS=1 and RDB$RELATION_NAME='REPLICACAO'
+16:44:40 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U', 'D'))
+16:44:40 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U'))
+16:44:40 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('D'))
+16:44:40 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U'))
+16:44:40 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('D'))
+16:44:41 - SELECT * FROM BANCOS ORDER BY PRIORIDADE
+16:44:41 - SELECT 1 AS EXISTE FROM RDB$RELATIONS WHERE RDB$FLAGS=1 and RDB$RELATION_NAME='REPLICACAO'
+16:44:41 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U', 'D'))
+16:44:41 - SELECT 1 AS EXISTE FROM RDB$RELATIONS WHERE RDB$FLAGS=1 and RDB$RELATION_NAME='REPLICACAO'
+16:44:41 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U', 'D'))
+16:44:41 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U'))
+16:44:41 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('D'))
+16:44:41 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U'))
+16:44:41 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('D'))
+16:44:42 - SELECT * FROM BANCOS ORDER BY PRIORIDADE
+16:44:42 - SELECT 1 AS EXISTE FROM RDB$RELATIONS WHERE RDB$FLAGS=1 and RDB$RELATION_NAME='REPLICACAO'
+16:44:42 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U', 'D'))
+16:44:42 - SELECT 1 AS EXISTE FROM RDB$RELATIONS WHERE RDB$FLAGS=1 and RDB$RELATION_NAME='REPLICACAO'
+16:44:42 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U', 'D'))
+16:44:42 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U'))
+16:44:42 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('D'))
+16:44:42 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U'))
+16:44:42 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('D'))
+16:45:02 - SELECT * FROM BANCOS ORDER BY PRIORIDADE
+16:45:02 - SELECT 1 AS EXISTE FROM RDB$RELATIONS WHERE RDB$FLAGS=1 and RDB$RELATION_NAME='REPLICACAO'
+16:45:02 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U', 'D'))
+16:45:02 - SELECT 1 AS EXISTE FROM RDB$RELATIONS WHERE RDB$FLAGS=1 and RDB$RELATION_NAME='REPLICACAO'
+16:45:02 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U', 'D'))
+16:45:02 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U'))
+16:45:02 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('D'))
+16:45:02 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U'))
+16:45:02 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('D'))
+16:45:02 - SELECT * FROM BANCOS ORDER BY PRIORIDADE
+16:45:02 - SELECT 1 AS EXISTE FROM RDB$RELATIONS WHERE RDB$FLAGS=1 and RDB$RELATION_NAME='REPLICACAO'
+16:45:02 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U', 'D'))
+16:45:02 - SELECT 1 AS EXISTE FROM RDB$RELATIONS WHERE RDB$FLAGS=1 and RDB$RELATION_NAME='REPLICACAO'
+16:45:02 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U', 'D'))
+16:45:02 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U'))
+16:45:02 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('D'))
+16:45:02 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U'))
+16:45:02 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('D'))
+16:45:02 - SELECT * FROM BANCOS ORDER BY PRIORIDADE
+16:45:02 - SELECT 1 AS EXISTE FROM RDB$RELATIONS WHERE RDB$FLAGS=1 and RDB$RELATION_NAME='REPLICACAO'
+16:45:02 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U', 'D'))
+16:45:02 - SELECT 1 AS EXISTE FROM RDB$RELATIONS WHERE RDB$FLAGS=1 and RDB$RELATION_NAME='REPLICACAO'
+16:45:02 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U', 'D'))
+16:45:02 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U'))
+16:45:02 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('D'))
+16:45:02 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U'))
+16:45:02 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('D'))
+16:45:03 - SELECT * FROM BANCOS ORDER BY PRIORIDADE
+16:45:03 - SELECT 1 AS EXISTE FROM RDB$RELATIONS WHERE RDB$FLAGS=1 and RDB$RELATION_NAME='REPLICACAO'
+16:45:03 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U', 'D'))
+16:45:03 - SELECT 1 AS EXISTE FROM RDB$RELATIONS WHERE RDB$FLAGS=1 and RDB$RELATION_NAME='REPLICACAO'
+16:45:03 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U', 'D'))
+16:45:03 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U'))
+16:45:03 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('D'))
+16:45:03 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U'))
+16:45:03 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('D'))
+16:48:04 - SELECT * FROM BANCOS ORDER BY PRIORIDADE
+16:48:04 - SELECT 1 AS EXISTE FROM RDB$RELATIONS WHERE RDB$FLAGS=1 and RDB$RELATION_NAME='REPLICACAO'
+16:48:04 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U', 'D'))
+16:48:04 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U'))
+16:48:04 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('D'))
+16:48:29 - SELECT * FROM BANCOS ORDER BY PRIORIDADE
+16:48:29 - SELECT 1 AS EXISTE FROM RDB$RELATIONS WHERE RDB$FLAGS=1 and RDB$RELATION_NAME='REPLICACAO'
+16:48:29 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U', 'D'))
+16:48:29 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE tabela = 'ATENDIMENTO')
+16:48:29 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE tabela = 'CLIENTE')
+16:48:29 - DELETE FROM REPLICACAO WHERE  TABELA = 'CLIENTE' ORDER BY DATAINCLUSAO ROWS 50
+16:48:29 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE tabela = 'FUNCIONARIO')
+16:48:30 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U'))
+16:48:30 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE tabela = 'ATENDIMENTO') 
+16:48:30 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE tabela = 'CLIENTE') 
+16:48:30 -  SELECT LIST(REGISTROS) AS REGISTROS, LIST(GUUID) AS GUUID, TABELA, COUNT(*) AS TOTAL FROM REPLICACAO WHERE ACAO IN ('I', 'U') AND  TABELA = 'CLIENTE' AND IDRECEIVER = 1 AND IDBANCO = 2 GROUP BY TABELA 
+16:48:30 - Select                                                                     list(TRIM(f.rdb$field_name))  as FIELDS                           from rdb$relation_fields f                                            left join rdb$fields fs on fs.rdb$field_name = f.rdb$field_source     where                                                                     f.rdb$relation_name = 'CLIENTE' and                   fs.rdb$computed_source is null                                   
+16:48:30 - UPDATE OR INSERT INTO CLIENTE(CLI_CODIGO,CLI_NOME,CLI_BAIRRO,CLI_CIDADE,CLI_UF,CLI_CEP,CLI_CPF_CNPJ,CLI_RG,CLI_NFANTASIA_APELIDO,CLI_TELEFONE,CLI_CELULAR,CLI_ENDERECO,CLI_ATIVIDADE) VALUES (:CLI_CODIGO,:CLI_NOME,:CLI_BAIRRO,:CLI_CIDADE,:CLI_UF,:CLI_CEP,:CLI_CPF_CNPJ,:CLI_RG,:CLI_NFANTASIA_APELIDO,:CLI_TELEFONE,:CLI_CELULAR,:CLI_ENDERECO,:CLI_ATIVIDADE)
+16:48:30 - DELETE FROM REPLICACAO WHERE ACAO IN ('I', 'U') AND  TABELA = 'CLIENTE' AND IDRECEIVER = 1 AND IDBANCO = 2
+16:48:30 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE tabela = 'FUNCIONARIO') 
+16:48:30 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('D'))
+16:48:56 - SELECT * FROM BANCOS ORDER BY PRIORIDADE
+16:48:56 - SELECT 1 AS EXISTE FROM RDB$RELATIONS WHERE RDB$FLAGS=1 and RDB$RELATION_NAME='REPLICACAO'
+16:48:56 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U', 'D'))
+16:48:56 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U'))
+16:48:56 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('D'))
+16:48:57 - SELECT * FROM BANCOS ORDER BY PRIORIDADE
+16:48:57 - SELECT 1 AS EXISTE FROM RDB$RELATIONS WHERE RDB$FLAGS=1 and RDB$RELATION_NAME='REPLICACAO'
+16:48:57 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U', 'D'))
+16:48:57 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U'))
+16:48:57 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('D'))
+16:48:58 - SELECT * FROM BANCOS ORDER BY PRIORIDADE
+16:48:58 - SELECT 1 AS EXISTE FROM RDB$RELATIONS WHERE RDB$FLAGS=1 and RDB$RELATION_NAME='REPLICACAO'
+16:48:58 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U', 'D'))
+16:48:58 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U'))
+16:48:58 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('D'))
+16:48:58 - SELECT * FROM BANCOS ORDER BY PRIORIDADE
+16:48:58 - SELECT 1 AS EXISTE FROM RDB$RELATIONS WHERE RDB$FLAGS=1 and RDB$RELATION_NAME='REPLICACAO'
+16:48:58 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U', 'D'))
+16:48:58 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U'))
+16:48:58 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('D'))
+17:39:57 - SELECT * FROM BANCOS ORDER BY PRIORIDADE
+17:39:57 - SELECT 1 AS EXISTE FROM RDB$RELATIONS WHERE RDB$FLAGS=1 and RDB$RELATION_NAME='REPLICACAO'
+17:39:57 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U', 'D'))
+17:39:57 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U'))
+17:39:57 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('D'))
+17:42:03 - SELECT * FROM BANCOS ORDER BY PRIORIDADE
+17:42:03 - SELECT 1 AS EXISTE FROM RDB$RELATIONS WHERE RDB$FLAGS=1 and RDB$RELATION_NAME='REPLICACAO'
+17:42:03 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U', 'D'))
+17:42:03 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U'))
+17:42:03 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('D'))
+17:43:53 - SELECT * FROM BANCOS ORDER BY PRIORIDADE
+17:43:53 - SELECT 1 AS EXISTE FROM RDB$RELATIONS WHERE RDB$FLAGS=1 and RDB$RELATION_NAME='REPLICACAO'
+17:43:53 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U', 'D'))
+17:43:53 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE tabela = 'ATENDIMENTO')
+17:43:53 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE tabela = 'CLIENTE')
+17:43:53 - DELETE FROM REPLICACAO WHERE  TABELA = 'CLIENTE' ORDER BY DATAINCLUSAO ROWS 50
+17:43:53 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE tabela = 'FUNCIONARIO')
+17:43:53 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U'))
+17:43:53 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE tabela = 'ATENDIMENTO') 
+17:43:53 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE tabela = 'CLIENTE') 
+17:43:53 -  SELECT LIST(REGISTROS) AS REGISTROS, LIST(GUUID) AS GUUID, TABELA, COUNT(*) AS TOTAL FROM REPLICACAO WHERE ACAO IN ('I', 'U') AND  TABELA = 'CLIENTE' AND IDRECEIVER = 1 AND IDBANCO = 2 GROUP BY TABELA 
+17:43:53 - Select                                                                     list(TRIM(f.rdb$field_name))  as FIELDS                           from rdb$relation_fields f                                            left join rdb$fields fs on fs.rdb$field_name = f.rdb$field_source     where                                                                     f.rdb$relation_name = 'CLIENTE' and                   fs.rdb$computed_source is null                                   
+17:43:53 - UPDATE OR INSERT INTO CLIENTE(CLI_CODIGO,CLI_NOME,CLI_BAIRRO,CLI_CIDADE,CLI_UF,CLI_CEP,CLI_CPF_CNPJ,CLI_RG,CLI_NFANTASIA_APELIDO,CLI_TELEFONE,CLI_CELULAR,CLI_ENDERECO,CLI_ATIVIDADE) VALUES (:CLI_CODIGO,:CLI_NOME,:CLI_BAIRRO,:CLI_CIDADE,:CLI_UF,:CLI_CEP,:CLI_CPF_CNPJ,:CLI_RG,:CLI_NFANTASIA_APELIDO,:CLI_TELEFONE,:CLI_CELULAR,:CLI_ENDERECO,:CLI_ATIVIDADE)
+17:43:53 - DELETE FROM REPLICACAO WHERE ACAO IN ('I', 'U') AND  TABELA = 'CLIENTE' AND IDRECEIVER = 1 AND IDBANCO = 2
+17:43:53 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE tabela = 'FUNCIONARIO') 
+17:43:53 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('D'))
+17:44:35 - SELECT * FROM BANCOS ORDER BY PRIORIDADE
+17:44:35 - SELECT 1 AS EXISTE FROM RDB$RELATIONS WHERE RDB$FLAGS=1 and RDB$RELATION_NAME='REPLICACAO'
+17:44:35 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U', 'D'))
+17:44:35 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U'))
+17:44:35 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('D'))
+17:44:36 - SELECT * FROM BANCOS ORDER BY PRIORIDADE
+17:44:36 - SELECT 1 AS EXISTE FROM RDB$RELATIONS WHERE RDB$FLAGS=1 and RDB$RELATION_NAME='REPLICACAO'
+17:44:36 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U', 'D'))
+17:44:36 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U'))
+17:44:36 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('D'))
+17:44:37 - SELECT * FROM BANCOS ORDER BY PRIORIDADE
+17:44:37 - SELECT 1 AS EXISTE FROM RDB$RELATIONS WHERE RDB$FLAGS=1 and RDB$RELATION_NAME='REPLICACAO'
+17:44:37 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U', 'D'))
+17:44:37 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U'))
+17:44:37 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('D'))
+17:44:40 - SELECT * FROM BANCOS ORDER BY PRIORIDADE
+17:44:40 - SELECT 1 AS EXISTE FROM RDB$RELATIONS WHERE RDB$FLAGS=1 and RDB$RELATION_NAME='REPLICACAO'
+17:44:40 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U', 'D'))
+17:44:40 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U'))
+17:44:40 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('D'))
+17:44:41 - SELECT * FROM BANCOS ORDER BY PRIORIDADE
+17:44:41 - SELECT 1 AS EXISTE FROM RDB$RELATIONS WHERE RDB$FLAGS=1 and RDB$RELATION_NAME='REPLICACAO'
+17:44:41 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U', 'D'))
+17:44:41 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U'))
+17:44:41 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('D'))
+17:44:42 - SELECT * FROM BANCOS ORDER BY PRIORIDADE
+17:44:42 - SELECT 1 AS EXISTE FROM RDB$RELATIONS WHERE RDB$FLAGS=1 and RDB$RELATION_NAME='REPLICACAO'
+17:44:42 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U', 'D'))
+17:44:42 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U'))
+17:44:42 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('D'))
+17:44:43 - SELECT * FROM BANCOS ORDER BY PRIORIDADE
+17:44:43 - SELECT 1 AS EXISTE FROM RDB$RELATIONS WHERE RDB$FLAGS=1 and RDB$RELATION_NAME='REPLICACAO'
+17:44:43 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U', 'D'))
+17:44:43 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U'))
+17:44:43 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('D'))
+17:44:44 - SELECT * FROM BANCOS ORDER BY PRIORIDADE
+17:44:44 - SELECT 1 AS EXISTE FROM RDB$RELATIONS WHERE RDB$FLAGS=1 and RDB$RELATION_NAME='REPLICACAO'
+17:44:44 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U', 'D'))
+17:44:44 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U'))
+17:44:44 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('D'))
+17:44:45 - SELECT * FROM BANCOS ORDER BY PRIORIDADE
+17:44:45 - SELECT 1 AS EXISTE FROM RDB$RELATIONS WHERE RDB$FLAGS=1 and RDB$RELATION_NAME='REPLICACAO'
+17:44:45 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U', 'D'))
+17:44:45 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U'))
+17:44:45 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('D'))
+17:44:46 - SELECT * FROM BANCOS ORDER BY PRIORIDADE
+17:44:46 - SELECT 1 AS EXISTE FROM RDB$RELATIONS WHERE RDB$FLAGS=1 and RDB$RELATION_NAME='REPLICACAO'
+17:44:46 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U', 'D'))
+17:44:46 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U'))
+17:44:46 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('D'))
+17:48:16 - SELECT * FROM BANCOS ORDER BY PRIORIDADE
+17:48:16 - SELECT 1 AS EXISTE FROM RDB$RELATIONS WHERE RDB$FLAGS=1 and RDB$RELATION_NAME='REPLICACAO'
+17:48:16 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U', 'D'))
+17:48:16 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U'))
+17:48:16 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('D'))
+17:49:03 - SELECT * FROM BANCOS ORDER BY PRIORIDADE
+17:49:03 - SELECT 1 AS EXISTE FROM RDB$RELATIONS WHERE RDB$FLAGS=1 and RDB$RELATION_NAME='REPLICACAO'
+17:49:03 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U', 'D'))
+17:49:03 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U'))
+17:49:03 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('D'))
+17:49:04 - SELECT * FROM BANCOS ORDER BY PRIORIDADE
+17:49:04 - SELECT 1 AS EXISTE FROM RDB$RELATIONS WHERE RDB$FLAGS=1 and RDB$RELATION_NAME='REPLICACAO'
+17:49:04 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U', 'D'))
+17:49:04 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U'))
+17:49:04 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('D'))
+17:49:05 - SELECT * FROM BANCOS ORDER BY PRIORIDADE
+17:49:05 - SELECT 1 AS EXISTE FROM RDB$RELATIONS WHERE RDB$FLAGS=1 and RDB$RELATION_NAME='REPLICACAO'
+17:49:05 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U', 'D'))
+17:49:05 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U'))
+17:49:05 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('D'))
+17:49:06 - SELECT * FROM BANCOS ORDER BY PRIORIDADE
+17:49:06 - SELECT 1 AS EXISTE FROM RDB$RELATIONS WHERE RDB$FLAGS=1 and RDB$RELATION_NAME='REPLICACAO'
+17:49:06 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U', 'D'))
+17:49:06 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('I', 'U'))
+17:49:06 - SELECT 1 AS EXISTE FROM rdb$database WHERE EXISTS(SELECT * FROM replicacao WHERE ACAO IN ('D'))
